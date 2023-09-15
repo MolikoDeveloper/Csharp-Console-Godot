@@ -2,6 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 
 public partial class CommandConsole : Node
 {
@@ -68,12 +70,12 @@ public partial class CommandConsole : Node
 		control.Visible = false;
 		this.ProcessMode = ProcessModeEnum.Always;
 
-		AddCommand("quit", Quit, 0);
-		AddCommand("exit", Quit, 0);
-		AddCommand("help", Help, 0);
-		AddCommand("clear", clear, 0);
-		AddCommand("delete_history", DeleteHistory, 0);
-		AddCommand("comandos", CommandList, 0);
+		AddCommand("quit", Quit);
+		AddCommand("exit", Quit);
+		AddCommand("help", Help);
+		AddCommand("clear", clear);
+		AddCommand("delete_history", DeleteHistory);
+		AddCommand("comandos", CommandList);	
 
 	}
 
@@ -90,10 +92,13 @@ public partial class CommandConsole : Node
 		AddInputHistory(text);
 		PrintLine(text);
 
-		var splitText = text.Split(' ');
+		//string[] splitText = text.Split(' ');
+		string[] splitText = SplitConsideringQuotes(text);
+		
 		if (splitText.Length > 0)
 		{
 			string commandString = splitText[0].ToLower();
+			
 			if (ConsoleCommands.ContainsKey(commandString))
 			{
 				ConsoleCommand commandEntry = ConsoleCommands[commandString];
@@ -120,7 +125,20 @@ public partial class CommandConsole : Node
 		}
 	}
 
-	public override void _Input(InputEvent @event)
+    string[] SplitConsideringQuotes(string input)
+    {
+        var matches = Regex.Matches(input, @"""[^""]+""|\S+");
+        var parts = new string[matches.Count];
+
+        for (int i = 0; i < matches.Count; i++)
+        {
+            parts[i] = matches[i].Value.Trim('"'); 
+        }
+
+        return parts;
+    }
+   
+    public override void _Input(InputEvent @event)
 	{
 		if (@event is InputEventKey eventKey)
 		{
@@ -304,7 +322,7 @@ public partial class CommandConsole : Node
 		Suggesting = false;
 	}
 
-	void PrintLine(string text)
+	public void PrintLine(string text)
 	{
 		if (rich_label == null)
 		{
@@ -330,10 +348,15 @@ public partial class CommandConsole : Node
 		ConsoleCommands.Add(CommandName, new ConsoleCommand(function, paramCount));
 	}
 
-	public void AddCommand(string CommandName, Action function, int paramCount)
+	public void AddCommand(string CommandName, Action function)
 	{
-		ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), paramCount));
+		ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), 0));
 	}
+
+	public void AddCommand(string CommandName, Delegate function)
+	{
+        ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
+    }
 
     public void RemoveCommand(string CommandName)
 	{
