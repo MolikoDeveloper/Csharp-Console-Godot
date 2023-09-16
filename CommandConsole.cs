@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 public partial class CommandConsole : Node
 {
@@ -70,12 +71,12 @@ public partial class CommandConsole : Node
 		control.Visible = false;
 		this.ProcessMode = ProcessModeEnum.Always;
 
-		AddCommand("quit", Quit);
-		AddCommand("exit", Quit);
-		AddCommand("help", Help);
-		AddCommand("clear", clear);
-		AddCommand("delete_history", DeleteHistory);
-		AddCommand("comandos", CommandList);	
+		_AddCommand("quit", Quit);
+		_AddCommand("exit", Quit);
+		_AddCommand("help", Help);
+		_AddCommand("clear", clear);
+		_AddCommand("delete_history", DeleteHistory);
+		_AddCommand("comandos", CommandList);	
 
 	}
 
@@ -176,36 +177,42 @@ public partial class CommandConsole : Node
 
 			if (control.Visible && eventKey.Pressed)
 			{
-				if (eventKey.Keycode == Key.Up)
+				if (eventKey.GetKeycodeWithModifiers() == Key.Up)
 				{
-					GetTree().Root.SetInputAsHandled();
-					if (console_history_index > 0)
-					{
-						console_history_index--;
-						line_edit.Text = console_history[console_history_index];
-						line_edit.CaretColumn = line_edit.Text.Length;
-					}
-				}
-				if (eventKey.Keycode == Key.Down)
+                    GetTree().Root.SetInputAsHandled();
+                    if (console_history_index > 0)
+                    {
+                        console_history_index--;
+                        if (console_history_index >= 0)
+                        {
+                            line_edit.Text = console_history[console_history_index];
+                            line_edit.CaretColumn = line_edit.Text.Length;
+                            ResetAutoComplete();
+                        }
+                    }
+                }
+
+				if (eventKey.GetKeycodeWithModifiers() == Key.Down)
 				{
-					GetTree().Root.SetInputAsHandled();
-					if (console_history_index < console_history.Count)
+                    GetTree().Root.SetInputAsHandled();
+					if(console_history_index < console_history.Count)
 					{
 						console_history_index++;
-						if (console_history_index == console_history.Count)
+						if(console_history_index < console_history.Count)
 						{
-							line_edit.Text = console_history[console_history_index];
-							line_edit.CaretColumn = line_edit.Text.Length;
-							ResetAutoComplete();
-						}
-						else
+                            line_edit.Text = console_history[console_history_index];
+                            line_edit.CaretColumn = line_edit.Text.Length;
+                            ResetAutoComplete();
+                        }
+                        else
 						{
-							line_edit.Text = string.Empty;
-							ResetAutoComplete();
-						}
+                            line_edit.Clear();
+                            ResetAutoComplete();
+                        }
 					}
-				}
-				if (eventKey.Keycode == Key.Pageup)
+                }
+
+                if (eventKey.Keycode == Key.Pageup)
 				{
 					VScrollBar scroll = rich_label.GetVScrollBar();
 					scroll.Value -= scroll.Page - scroll.Page * 0.1;
@@ -259,13 +266,13 @@ public partial class CommandConsole : Node
 	{
 		if (Suggesting)
 		{
-			for (int i = 0; i < Suggestions.Count - 1; i++)
+			for (int i = 0; i < Suggestions.Count; i++)
 			{
 				if (CurrentSuggestion == i)
 				{
 					line_edit.Text = Suggestions[i];
 					line_edit.CaretColumn = line_edit.Text.Length;
-					if (CurrentSuggestion == Suggestions.Count - 1)
+					if (CurrentSuggestion == Suggestions.Count -1)
 					{
 						CurrentSuggestion = 0;
 					}
@@ -283,7 +290,7 @@ public partial class CommandConsole : Node
 			List<string> commands = new List<string>();
 			foreach (var command in ConsoleCommands)
 			{
-				commands.Append(command.Key);
+				commands.Add(command.Key);
 			}
 			commands.Sort();
 			commands.Reverse();
@@ -300,7 +307,7 @@ public partial class CommandConsole : Node
 					}
 					else
 					{
-						Suggestions.Append(command);
+						Suggestions.Add(command);
 					}
 					PrevIndex = index;
 				}
@@ -322,7 +329,7 @@ public partial class CommandConsole : Node
 		Suggesting = false;
 	}
 
-	public void PrintLine(string text)
+	void PrintLine(string text)
 	{
 		if (rich_label == null)
 		{
@@ -338,22 +345,36 @@ public partial class CommandConsole : Node
 	{
 		if (console_history.Count == 0 || text != console_history.Last())
 		{
-			console_history.Append(text);
+			console_history.Add(text);
 		}
 		console_history_index = console_history.Count;
 	}
 
-	public void AddCommand(string CommandName, Callable function, int paramCount)
-	{
-		ConsoleCommands.Add(CommandName, new ConsoleCommand(function, paramCount));
-	}
+    /// <summary>
+	/// add a command to the console ingame, active console with ~ button.
+	/// <code>
+	/// CommandConsole.AddCommand("testing", test);
+	/// </code>
+    /// any opinion is accepted.
+    /// </summary>
+    /// <param name="CommandName">name of the function called in game console</param>
+    /// <param name="function">reference to the method</param>
+    public static void AddCommand(string CommandName, Delegate function)
+    {
+		try
+		{
+			Node node = (Node)function.Target;
+			CommandConsole _commandConsole = node.GetNode<CommandConsole>("/root/CommandConsole");
+			_commandConsole._AddCommand(CommandName, function);
+		}
+		catch(Exception e)
+		{
+			GD.PrintErr(e);
+		}
+    }
 
-	public void AddCommand(string CommandName, Action function)
-	{
-		ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), 0));
-	}
-
-	public void AddCommand(string CommandName, Delegate function)
+	//to do not be redundant
+	void _AddCommand(string CommandName, Delegate function)
 	{
         ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
     }
@@ -367,6 +388,7 @@ public partial class CommandConsole : Node
 	{
 		GetTree().Quit();
 	}
+	
 	void clear()
 	{
 		rich_label.Clear();
