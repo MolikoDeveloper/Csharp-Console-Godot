@@ -2,9 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using static System.Net.Mime.MediaTypeNames;
 
 public partial class CommandConsole : Node
 {
@@ -12,12 +11,14 @@ public partial class CommandConsole : Node
 	public event Action console_closed;
 	public event Action console_unknown_command;
 
+	static CommandConsole instance;
 
 	class ConsoleCommand
 	{
 		public Callable function;
 		public int param_count;
-		public string Description { get; set; }
+		public Dictionary<string,string> Params = new Dictionary<string, string>();
+		public string Description = "Description Not Definned";
 
 		public ConsoleCommand(Callable in_function, int in_param_count)
 		{
@@ -39,10 +40,10 @@ public partial class CommandConsole : Node
 	int CurrentSuggestion = 0;
 	bool Suggesting = false;
 
-
 	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{
+		instance = this;
 		this.control = new Control();
 		this.rich_label = new RichTextLabel();
 		this.line_edit = new LineEdit();
@@ -57,7 +58,7 @@ public partial class CommandConsole : Node
 		rich_label.ScrollFollowing = true;
 		rich_label.AnchorRight = 1;
 		rich_label.AnchorBottom = 1;
-		rich_label.AddThemeStyleboxOverride("normal", (StyleBox)ResourceLoader.Load("res://addons/console/console_background.tres"));
+		rich_label.AddThemeStyleboxOverride("normal", (StyleBox)ResourceLoader.Load("res://addons/csharpConsole/console_background.tres"));
 		control.AddChild(rich_label);
 
 		rich_label.Text = "Development Console. \n";
@@ -71,12 +72,16 @@ public partial class CommandConsole : Node
 		control.Visible = false;
 		this.ProcessMode = ProcessModeEnum.Always;
 
-		_AddCommand("quit", Quit);
-		_AddCommand("exit", Quit);
-		_AddCommand("help", Help);
-		_AddCommand("clear", clear);
-		_AddCommand("delete_history", DeleteHistory);
-		_AddCommand("comandos", CommandList);	
+		AddCommand("quit", Quit);
+		AddCommandDescription("quit", "Quits the game");
+		AddCommand("exit", Quit);
+        AddCommandDescription("exit", "Quits the game");
+		AddCommand("help", Help);
+		AddCommandDescription("help", "Shows a list of all the currently registered commands");
+		AddCommand("clear", clear);
+		AddCommandDescription("clear", "Clears the current registry view");
+		AddCommand("delete_history", DeleteHistory);
+		AddCommandDescription("delete_history", "Deletes the commands history");
 
 	}
 
@@ -363,23 +368,44 @@ public partial class CommandConsole : Node
     {
 		try
 		{
-			Node node = (Node)function.Target;
-			CommandConsole _commandConsole = node.GetNode<CommandConsole>("/root/CommandConsole");
-			_commandConsole._AddCommand(CommandName, function);
-		}
+            instance.ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
+            foreach (var param in function.Method.GetParameters())
+            {
+                instance.ConsoleCommands[CommandName].Params.Add(param.Name, null);
+            }
+        }
 		catch(Exception e)
 		{
 			GD.PrintErr(e);
 		}
     }
 
-	//to do not be redundant
-	void _AddCommand(string CommandName, Delegate function)
-	{
-        ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
+	//this is gonna be show on screen when the command is written
+    public static void AddParameterDescription(string CommandName, string param, string description)
+    {
+        try
+        {
+            instance.ConsoleCommands[CommandName].Params[param] = description;
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr(e);
+        }
     }
 
-    public void RemoveCommand(string CommandName)
+    public static void AddCommandDescription(string CommandName, string description)
+    {
+        try
+        {
+            instance.ConsoleCommands[CommandName].Description = description;
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr(e);
+        }
+    }
+
+    void RemoveCommand(string CommandName)
 	{
         ConsoleCommands.Remove(CommandName);
     }
@@ -402,14 +428,11 @@ public partial class CommandConsole : Node
 	}
 	void Help()
 	{
-		rich_label.AddText("\r\n\tBuilt in commands:\r\n\t\t'clear' : Clears the current registry view\r\n\t\t'commands_list': Shows a list of all the currently registered commands\r\n\t\t'delete_hystory' : Deletes the commands history\r\n\t\t'quit' : Quits the game\r\n\tControls:\r\n\t\tUp and Down arrow keys to navigate commands history\r\n\t\tPageUp and PageDown to navigate registry history\r\n\t\tCtr+Tilde to change console size between half screen and full creen\r\n\t\tTilde or Esc to close the console\r\n\t\tTab for basic autocomplete");
-	}
-
-	void CommandList()
-	{
-		foreach (var command in ConsoleCommands.Keys.OrderBy(d => d))
-		{
-			rich_label.AddText("> " + command + "\n");   
+		rich_label.AddText("Commands:\n");
+        foreach (var command in ConsoleCommands.OrderBy(d => d.Key))
+        {
+            rich_label.AddText(string.Format("\t{0} > {1}\n", command.Key, command.Value.Description));
         }
+        rich_label.AddText("\r\n\t\tUp and Down arrow keys to navigate commands history\r\n\t\tPageUp and PageDown to navigate registry history\r\n\t\tCtr+Tilde to change console size between half screen and full creen\r\n\t\tTilde or Esc to close the console\r\n\t\tTab for basic autocomplete\n");
 	}
 }
