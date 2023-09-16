@@ -17,6 +17,7 @@ public partial class Example : Node
     {
         GD.Print(text);
     }
+
     void HelloWorld()
     {
         GD.PrintErr("Hola Mundo!");
