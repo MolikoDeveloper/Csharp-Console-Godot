@@ -9,8 +9,12 @@ public partial class Example : Node
 {
     public override void _Ready()
     {
-        CommandConsole.AddCommand("hi", HelloWorld);
         CommandConsole.AddCommand("print", Print);
+        CommandConsole.AddCommandDescription("print", "Prints the given text in the console.");
+        CommandConsole.AddParameterDescription(CommandName: "print", param:"text", description:"The text to print.");
+
+        CommandConsole.AddCommand("hi", HelloWorld);
+        CommandConsole.AddCommandDescription("hi", "Prints 'Hola Mundo!' in the console.");
     }
 
     void Print(string text)
