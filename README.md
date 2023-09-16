@@ -37,4 +37,7 @@ in game run with:
 
 > `test` "testing the" example => set `testing the` `example` as params
 
+![image](https://github.com/MolikoDeveloper/Csharp-Console-Godot/assets/58595683/884eba54-476d-410c-a92a-9793ccdac252)
+
+
 all with a maximum of 16 params.
