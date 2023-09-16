@@ -8,7 +8,7 @@ using Godot;
 public partial class Example : Node
 {
 	public override void _Ready()
-	{
+    {
         CommandConsole.AddCommand("hi", HelloWorld);
         CommandConsole.AddCommand("print", Print);
     }
