@@ -13,14 +13,14 @@ public partial class CommandConsole : Node
 
 	static CommandConsole instance;
 
-	class ConsoleCommand
+	class Command
 	{
 		public Callable function;
 		public int param_count;
 		public Dictionary<string,string> Params = new Dictionary<string, string>();
 		public string Description = "Description Not Definned";
 
-		public ConsoleCommand(Callable in_function, int in_param_count)
+		public Command(Callable in_function, int in_param_count)
 		{
 			this.function = in_function;
 			this.param_count = in_param_count;
@@ -31,7 +31,7 @@ public partial class CommandConsole : Node
 	RichTextLabel rich_label;
 	LineEdit line_edit;
 
-	Dictionary<string, ConsoleCommand> ConsoleCommands = new Dictionary<string, ConsoleCommand>();
+	Dictionary<string, Command> Commands = new Dictionary<string, Command>();
 	List<string> console_history = new List<string>();
 	int console_history_index = 0;
 
@@ -105,9 +105,9 @@ public partial class CommandConsole : Node
 		{
 			string commandString = splitText[0].ToLower();
 			
-			if (ConsoleCommands.ContainsKey(commandString))
+			if (Commands.ContainsKey(commandString))
 			{
-				ConsoleCommand commandEntry = ConsoleCommands[commandString];
+				Command commandEntry = Commands[commandString];
 
 				switch (commandEntry.param_count)
 				{
@@ -293,7 +293,7 @@ public partial class CommandConsole : Node
 		{
 			Suggesting = true;
 			List<string> commands = new List<string>();
-			foreach (var command in ConsoleCommands)
+			foreach (var command in Commands)
 			{
 				commands.Add(command.Key);
 			}
@@ -368,10 +368,10 @@ public partial class CommandConsole : Node
     {
 		try
 		{
-            instance.ConsoleCommands.Add(CommandName, new ConsoleCommand(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
+            instance.Commands.Add(CommandName, new Command(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
             foreach (var param in function.Method.GetParameters())
             {
-                instance.ConsoleCommands[CommandName].Params.Add(param.Name, null);
+                instance.Commands[CommandName].Params.Add(param.Name, null);
             }
         }
 		catch(Exception e)
@@ -385,7 +385,7 @@ public partial class CommandConsole : Node
     {
         try
         {
-            instance.ConsoleCommands[CommandName].Params[param] = description;
+            instance.Commands[CommandName].Params[param] = description;
         }
         catch (Exception e)
         {
@@ -397,7 +397,7 @@ public partial class CommandConsole : Node
     {
         try
         {
-            instance.ConsoleCommands[CommandName].Description = description;
+            instance.Commands[CommandName].Description = description;
         }
         catch (Exception e)
         {
@@ -407,7 +407,7 @@ public partial class CommandConsole : Node
 
     void RemoveCommand(string CommandName)
 	{
-        ConsoleCommands.Remove(CommandName);
+        Commands.Remove(CommandName);
     }
 
 	public void Quit()
@@ -429,7 +429,7 @@ public partial class CommandConsole : Node
 	void Help()
 	{
 		rich_label.AddText("Commands:\n");
-        foreach (var command in ConsoleCommands.OrderBy(d => d.Key))
+        foreach (var command in Commands.OrderBy(d => d.Key))
         {
             rich_label.AddText(string.Format("\t{0} > {1}\n", command.Key, command.Value.Description));
         }
