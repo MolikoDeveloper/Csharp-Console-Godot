@@ -30,7 +30,8 @@ public partial class CommandConsole : Node
 
 	Control control;
 	RichTextLabel rich_label;
-	LineEdit line_edit;
+	RichTextLabel syntaxLabel;
+    LineEdit line_edit;
 
 	Dictionary<string, Command> Commands = new Dictionary<string, Command>();
 	List<string> console_history = new List<string>();
@@ -44,10 +45,19 @@ public partial class CommandConsole : Node
 	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{
-		instance = this;
+        #region Create
+
+        instance = this;
 		this.control = new Control();
 		this.rich_label = new RichTextLabel();
-		this.line_edit = new LineEdit();
+		this.syntaxLabel = new RichTextLabel();
+        this.line_edit = new LineEdit();
+
+
+		StyleBoxFlat style = new StyleBoxFlat();
+		StyleBoxFlat style2 = new StyleBoxFlat();
+        style.BgColor = new Color(0, 0, 1, 0.5f);
+		style2.BgColor = new Color(0, 0, 0, 0.5f);
 
 		CanvasLayer canvas = new CanvasLayer();
 		canvas.Layer = 3;
@@ -57,23 +67,34 @@ public partial class CommandConsole : Node
 		canvas.AddChild(control);
 
 		rich_label.ScrollFollowing = true;
-		rich_label.AnchorRight = 1;
-		rich_label.AnchorBottom = 1;
-		rich_label.AddThemeStyleboxOverride("normal", (StyleBox)ResourceLoader.Load("res://addons/csharpConsole/console_background.tres"));
+		rich_label.AnchorRight = 1.0f;
+		rich_label.AnchorBottom = 0.5f;
+		rich_label.AddThemeStyleboxOverride("normal", style);
 		control.AddChild(rich_label);
 
 		rich_label.Text = "Development Console. \n";
-		line_edit.AnchorTop = 0.5f;
+		line_edit.PlaceholderText = "Enter \"help\" for instructions";
+		line_edit.AnchorTop = 0.54f;
 		line_edit.AnchorRight = 1;
-		line_edit.AnchorBottom = 0.5f;
+		line_edit.AnchorBottom = 0.59f;
 
-		control.AddChild(line_edit);
+		syntaxLabel.AnchorTop = 0.5f;
+		syntaxLabel.AnchorRight = 1.0f;
+		syntaxLabel.AnchorBottom = 0.54f;
+
+        syntaxLabel.AddThemeStyleboxOverride("normal",style2);
+		control.AddChild(syntaxLabel);
+
+
+        control.AddChild(line_edit);
 		line_edit.TextSubmitted += OnTextSubmited;
 		line_edit.TextChanged += OnTextChanged;
 		control.Visible = false;
 		this.ProcessMode = ProcessModeEnum.Always;
+        #endregion
 
-		AddCommand("quit", Quit);
+        #region add commands
+        AddCommand("quit", Quit);
 		Commands["quit"].base_command = true;
 		AddCommandDescription("quit", "Quits the game.");
 		AddCommand("exit", Quit);
@@ -94,50 +115,22 @@ public partial class CommandConsole : Node
 		AddCommandDescription("command_list", "Shows a list of all the currently registered commands.");
 
 		GetCommandsWithAttribute();
-	}
-
-	void GetCommandsWithAttribute()
-	{
-        var Methods = 
-			Assembly.GetExecutingAssembly()
-			.GetTypes().
-			SelectMany(x => x.GetMethods())
-			.Where(x => x.GetCustomAttributes(typeof(AddCommandAttribute), false).Length > 0)
-			;
-
-		foreach(var Method in Methods)
-		{
-			string commandName = Method.GetCustomAttribute<AddCommandAttribute>().CommandName;
-
-            Delegate delegateInstance = null;
-
-            if (Method.IsStatic)
-            {
-                delegateInstance = Delegate.CreateDelegate(System.Linq.Expressions.Expression.GetActionType(Method.GetParameters().Select(p => p.ParameterType).ToArray()), Method);
-            }
-            else
-            {
-                var targetType = Method.DeclaringType;
-                var targetInstance = Activator.CreateInstance(targetType); // This assumes the type has a parameterless constructor
-                delegateInstance = Delegate.CreateDelegate(System.Linq.Expressions.Expression.GetActionType(Method.GetParameters().Select(p => p.ParameterType).ToArray()), targetInstance, Method);
-            }
-
-            AddCommand(commandName, delegateInstance);
-        }
-		
+        #endregion
     }
-
-
-	private void OnTextChanged(string newText)
+    #region base Command Console
+    private void OnTextChanged(string newText)
 	{
+		ShowDescription(newText);
 		ResetAutoComplete();
-	}
+
+    }
 
 	void OnTextSubmited(string text)
 	{
 		ScrollToBottom();
 		ResetAutoComplete();
 		line_edit.Clear();
+		syntaxLabel.Clear();
 		AddInputHistory(text);
 		PrintLine(text);
 
@@ -191,8 +184,8 @@ public partial class CommandConsole : Node
 	{
 		if (@event is InputEventKey eventKey)
 		{
-			// ~ key
-			if (eventKey.Keycode == Key.Quoteleft)
+            // ~ key
+            if (eventKey.Keycode == Key.Quoteleft)
 			{
 				if (eventKey.Pressed)
 				{
@@ -286,14 +279,14 @@ public partial class CommandConsole : Node
 		control.Visible = !control.Visible;
 		if (control.Visible)
 		{
-			GetTree().Paused = true;
+			//GetTree().Paused = true;
 			line_edit.GrabFocus();
 			console_opened?.Invoke();
 		}
 		else
 		{
 			control.AnchorBottom = 1f;
-			GetTree().Paused = false;
+			//GetTree().Paused = false;
 			ScrollToBottom();
 			ResetAutoComplete();
 			console_closed?.Invoke();
@@ -377,6 +370,34 @@ public partial class CommandConsole : Node
 		Suggesting = false;
 	}
 
+	void ShowDescription(string input)
+	{
+        syntaxLabel.Clear();
+        var matches = Regex.Matches(input, @"""[^""]+""|\S+");
+		string _function = "";
+		string _params = "";
+
+        foreach (var match in matches)
+		{
+			foreach (var command in Commands.Keys)
+			{
+				if(command == match.ToString())
+				{
+					_function = command;
+					
+					foreach(string _param in Commands[command].Params.Keys) 
+					{
+						_params += " [color=yellow]" + _param + "[/color]"; 
+
+					}
+                }
+			}
+		}
+		
+		syntaxLabel.AppendText(_function);
+		syntaxLabel.AppendText(_params);
+    }
+
 	void PrintLine(string text)
 	{
 		if (rich_label == null)
@@ -397,56 +418,6 @@ public partial class CommandConsole : Node
 		}
 		console_history_index = console_history.Count;
 	}
-
-    /// <summary>
-	/// add a command to the console ingame, active console with ~ button.
-	/// <code>
-	/// CommandConsole.AddCommand("testing", test);
-	/// </code>
-    /// any opinion is accepted.
-    /// </summary>
-    /// <param name="CommandName">name of the function called in game console</param>
-    /// <param name="function">reference to the method</param>
-    public static void AddCommand(string CommandName, Delegate function)
-    {
-		try
-		{
-            instance.Commands.Add(CommandName, new Command(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
-            foreach (var param in function.Method.GetParameters())
-            {
-                instance.Commands[CommandName].Params.Add(param.Name, null);
-            }
-        }
-		catch(Exception e)
-		{
-			GD.PrintErr(e);
-		}
-    }
-
-	//this is gonna be show on screen when the command is written
-    public static void AddParameterDescription(string CommandName, string param, string description)
-    {
-        try
-        {
-            instance.Commands[CommandName].Params[param] = description;
-        }
-        catch (Exception e)
-        {
-            GD.PrintErr(e);
-        }
-    }
-
-    public static void AddCommandDescription(string CommandName, string description)
-    {
-        try
-        {
-            instance.Commands[CommandName].Description = description;
-        }
-        catch (Exception e)
-        {
-            GD.PrintErr(e);
-        }
-    }
 
     void RemoveCommand(string CommandName)
 	{
@@ -491,6 +462,126 @@ public partial class CommandConsole : Node
         {
             if (!command.Value.base_command)
                 rich_label.AppendText(string.Format("\t[color=light_green]{0}[/color]: {1}\n", command.Key, command.Value.Description));
+        }
+    }
+
+    #endregion
+
+    /// <summary>
+    /// add a command to the console ingame, active console with ~ button.
+    /// <code>
+    /// CommandConsole.AddCommand("testing", test);
+    /// </code>
+    /// any opinion is accepted.
+    /// </summary>
+    /// <param name="CommandName">name of the function called in game console</param>
+    /// <param name="function">reference to the method</param>
+    public static void AddCommand(string CommandName, Delegate function)
+    {
+        try
+        {
+			if(function.Target != null)
+			{
+				instance.Commands.Add(CommandName, new Command(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
+			}
+			else
+			{
+                instance.Commands.Add(CommandName, new Command(new Callable(null, function.Method.Name), function.Method.GetParameters().Length));
+                GD.Print("target is null");
+			}
+			
+			
+			foreach (var param in function.Method.GetParameters())
+            {
+                instance.Commands[CommandName].Params.Add(param.Name, null);
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr(e);
+        }
+    }
+
+    //this is gonna be show on screen when the command is written
+    public static void AddParameterDescription(string CommandName, string param, string description)
+    {
+        try
+        {
+            instance.Commands[CommandName].Params[param] = description;
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr(e);
+        }
+    }
+
+    public static void AddCommandDescription(string CommandName, string description)
+    {
+        try
+        {
+            instance.Commands[CommandName].Description = description;
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr(e);
+        }
+    }
+
+    void GetCommandsWithAttribute()
+    {
+        var Methods =
+            Assembly.GetExecutingAssembly()
+            .GetTypes().
+            SelectMany(x => x.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            ;
+
+
+        foreach (var Method in Methods)
+        {
+            var commandAttributes = Method.GetCustomAttributes(typeof(AddCommandAttribute), false);
+            AddCommandDescriptionAttribute commandDescriptionAttribute = (AddCommandDescriptionAttribute)Method.GetCustomAttribute(typeof(AddCommandDescriptionAttribute), false);
+
+            foreach (AddCommandAttribute att in commandAttributes)
+            {
+                try
+                {
+                    Delegate delegateInstance = null;
+
+                    if (Method.IsStatic)
+                    {
+                        
+                        return;
+                        /*
+						delegateInstance = Delegate.CreateDelegate(
+							System.Linq.Expressions.Expression.GetActionType(
+								Method.GetParameters().Select(p => p.ParameterType).ToArray()),
+							null,
+							Method);*/
+                    }
+
+                    else
+                    {
+                        var targetType = Method.DeclaringType;
+                        var targetInstance = Activator.CreateInstance(targetType); // This assumes the type has a parameterless constructor
+                        delegateInstance = Delegate.CreateDelegate(
+                            System.Linq.Expressions.Expression.GetActionType(
+                                Method.GetParameters().Select(p => p.ParameterType).ToArray()),
+                            targetInstance,
+                            Method);
+                    }
+
+                    AddCommand(att.CommandName, delegateInstance);
+
+                    if (commandDescriptionAttribute != null)
+                    {
+                        AddCommandDescription(att.CommandName, commandDescriptionAttribute.Description);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr(ex.ToString());
+                }
+            }
         }
     }
 }
