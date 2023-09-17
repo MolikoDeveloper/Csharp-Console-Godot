@@ -26,6 +26,13 @@ public partial class Example : Node
     {
         GD.PrintErr("Hola Mundo!");
     }
+
+    //also you can add the Attribute
+    [AddCommand("testing")]
+    public void testing(string text)
+    {
+        GD.Print(text);
+    }
 }
 
 ```
