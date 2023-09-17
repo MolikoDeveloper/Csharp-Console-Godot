@@ -28,7 +28,7 @@ public partial class Example : Node
     }
 
     //also you can add the Attribute
-    [AddCommand("testing")]
+    [AddCommand("testing"), AddCommandDescription("[color=red]Prints on GD Console[/color]")]
     public void testing(string text)
     {
         GD.Print(text);
