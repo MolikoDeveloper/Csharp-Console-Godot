@@ -14,7 +14,7 @@ public partial class Example : Node
         CommandConsole.AddParameterDescription(CommandName: "print", param:"text", description:"The text to print.");
 
         CommandConsole.AddCommand("heloworld", HelloWorld);
-        CommandConsole.AddCommandDescription("hi", "Prints 'Hola Mundo!' in the console.");
+        CommandConsole.AddCommandDescription("heloworld", "Prints 'Hola Mundo!' in the console.");
     }
 
     void Print(string text)
