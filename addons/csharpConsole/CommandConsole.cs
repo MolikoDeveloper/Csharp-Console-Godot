@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 public partial class CommandConsole : Node
@@ -15,6 +15,7 @@ public partial class CommandConsole : Node
 
 	class Command
 	{
+		public bool base_command = false;
 		public Callable function;
 		public int param_count;
 		public Dictionary<string,string> Params = new Dictionary<string, string>();
@@ -73,17 +74,59 @@ public partial class CommandConsole : Node
 		this.ProcessMode = ProcessModeEnum.Always;
 
 		AddCommand("quit", Quit);
-		AddCommandDescription("quit", "Quits the game");
+		Commands["quit"].base_command = true;
+		AddCommandDescription("quit", "Quits the game.");
 		AddCommand("exit", Quit);
-        AddCommandDescription("exit", "Quits the game");
+		Commands["exit"].base_command = true;
+        AddCommandDescription("exit", "Quits the game.");
 		AddCommand("help", Help);
-		AddCommandDescription("help", "Shows a list of all the currently registered commands");
+		Commands["help"].base_command = true;
+		AddCommandDescription("help", "Shows a list of all the currently registered commands.");
 		AddCommand("clear", clear);
-		AddCommandDescription("clear", "Clears the current registry view");
+		Commands["clear"].base_command = true;
+		AddCommandDescription("clear", "Clears the current registry view.");
 		AddCommand("delete_history", DeleteHistory);
-		AddCommandDescription("delete_history", "Deletes the commands history");
+		Commands["delete_history"].base_command = true;
+		AddCommandDescription("delete_history", "Deletes the commands history.");
 
+		AddCommand("command_list", ShowExternalCommands);
+		Commands["command_list"].base_command = true;
+		AddCommandDescription("command_list", "Shows a list of all the currently registered commands.");
+
+		GetCommandsWithAttribute();
 	}
+
+	void GetCommandsWithAttribute()
+	{
+        var Methods = 
+			Assembly.GetExecutingAssembly()
+			.GetTypes().
+			SelectMany(x => x.GetMethods())
+			.Where(x => x.GetCustomAttributes(typeof(AddCommandAttribute), false).Length > 0)
+			;
+
+		foreach(var Method in Methods)
+		{
+			string commandName = Method.GetCustomAttribute<AddCommandAttribute>().CommandName;
+
+            Delegate delegateInstance = null;
+
+            if (Method.IsStatic)
+            {
+                delegateInstance = Delegate.CreateDelegate(System.Linq.Expressions.Expression.GetActionType(Method.GetParameters().Select(p => p.ParameterType).ToArray()), Method);
+            }
+            else
+            {
+                var targetType = Method.DeclaringType;
+                var targetInstance = Activator.CreateInstance(targetType); // This assumes the type has a parameterless constructor
+                delegateInstance = Delegate.CreateDelegate(System.Linq.Expressions.Expression.GetActionType(Method.GetParameters().Select(p => p.ParameterType).ToArray()), targetInstance, Method);
+            }
+
+            AddCommand(commandName, delegateInstance);
+        }
+		
+    }
+
 
 	private void OnTextChanged(string newText)
 	{
@@ -431,8 +474,23 @@ public partial class CommandConsole : Node
 		rich_label.AddText("Commands:\n");
         foreach (var command in Commands.OrderBy(d => d.Key))
         {
-            rich_label.AddText(string.Format("\t{0} > {1}\n", command.Key, command.Value.Description));
+			if(command.Value.base_command)
+				rich_label.AppendText(string.Format("\t[color=light_green]{0}[/color]: {1}\n", command.Key, command.Value.Description));
         }
-        rich_label.AddText("\r\n\t\tUp and Down arrow keys to navigate commands history\r\n\t\tPageUp and PageDown to navigate registry history\r\n\t\tCtr+Tilde to change console size between half screen and full creen\r\n\t\tTilde or Esc to close the console\r\n\t\tTab for basic autocomplete\n");
+        rich_label.AppendText("" +
+            "\r\n\t\t[color=light_blue]Up[/color] and [color=light_blue]Down[/color] arrow keys to navigate commands history" +
+            "\r\n\t\t[color=light_blue]PageUp[/color] and [color=light_blue]PageDown[/color] to navigate registry history" +
+            "\r\n\t\t[color=light_blue]Ctr+Tilde[/color] to change console size between half screen and full creen" +
+            "\r\n\t\t[color=light_blue]Tilde[/color] or [color=light_blue]Esc[/color] to close the console" +
+            "\r\n\t\t[color=light_blue]Tab[/color] for basic autocomplete\n");
 	}
+
+	void ShowExternalCommands()
+	{
+        foreach (var command in Commands.OrderBy(d => d.Key))
+        {
+            if (!command.Value.base_command)
+                rich_label.AppendText(string.Format("\t[color=light_green]{0}[/color]: {1}\n", command.Key, command.Value.Description));
+        }
+    }
 }

@@ -8,4 +8,10 @@ public partial class Console_Plugin : EditorPlugin
         base._EnterTree();
         AddAutoloadSingleton("CommandConsole", "res://addons/csharpConsole/CommandConsole.cs");
     }
+
+    public override void _ExitTree()
+    {
+        base._ExitTree();
+        RemoveAutoloadSingleton("CommandConsole");
+    }
 }
