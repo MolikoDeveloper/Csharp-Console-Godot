@@ -137,24 +137,40 @@ public partial class CommandConsole : Node
 		//string[] splitText = text.Split(' ');
 		string[] splitText = SplitConsideringQuotes(text);
 		
-		if (splitText.Length > 0)
+		if (splitText.Length > 0 )
 		{
 			string commandString = splitText[0].ToLower();
 			
 			if (Commands.ContainsKey(commandString))
 			{
 				Command commandEntry = Commands[commandString];
-
+				
 				switch (commandEntry.param_count)
 				{
 					case 0:
 						commandEntry.function.Call();
 						break;
 					case > 0:
+						List<Variant> InGameparams_ = new List<Variant>();
+
 						for (int i = 1; i < splitText.Length; i++)
 						{
-							commandEntry.function.Call(splitText[i]);
+                            InGameparams_.Add(splitText[i]);
 						}
+
+						//verify the ammount of params
+						if(InGameparams_.Count < commandEntry.Params.Count)
+						{
+                            PrintLine("Not enough parameters.");
+                            break;
+                        }
+						if(InGameparams_.Count > commandEntry.Params.Count)
+						{
+                            PrintLine("too much parameters.");
+                            break;
+                        }
+
+						commandEntry.function.Call(InGameparams_.ToArray());
 						break;
 				}
 			}
@@ -480,16 +496,8 @@ public partial class CommandConsole : Node
     {
         try
         {
-			if(function.Target != null)
-			{
-				instance.Commands.Add(CommandName, new Command(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
-			}
-			else
-			{
-                instance.Commands.Add(CommandName, new Command(new Callable(null, function.Method.Name), function.Method.GetParameters().Length));
-                GD.Print("target is null");
-			}
 			
+			instance.Commands.Add(CommandName, new Command(new Callable((GodotObject)function.Target, function.Method.Name), function.Method.GetParameters().Length));
 			
 			foreach (var param in function.Method.GetParameters())
             {
@@ -502,7 +510,12 @@ public partial class CommandConsole : Node
         }
     }
 
-    //this is gonna be show on screen when the command is written
+    /// <summary>
+	/// work in progress
+	/// </summary>
+	/// <param name="CommandName"></param>
+	/// <param name="param"></param>
+	/// <param name="description"></param>
     public static void AddParameterDescription(string CommandName, string param, string description)
     {
         try
@@ -515,6 +528,11 @@ public partial class CommandConsole : Node
         }
     }
 
+	/// <summary>
+	/// shows a description of the command in the console with commandlist
+	/// </summary>
+	/// <param name="CommandName"></param>
+	/// <param name="description"></param>
     public static void AddCommandDescription(string CommandName, string description)
     {
         try
