@@ -1,5 +1,5 @@
-[!WARNING]
-this project is out of date.
+> [!WARNING]
+> this project is out of date.
 
 im currencly working but you can take this project as a base.
 
