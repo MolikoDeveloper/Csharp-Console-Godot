@@ -1,3 +1,8 @@
+[!WARNING]
+this project is out of date.
+
+im currencly working but you can take this project as a base.
+
 # Csharp-Console-Godot
 original project:
 [Godot Console](https://github.com/jitspoe/godot-console)
